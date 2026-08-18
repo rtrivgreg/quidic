@@ -6,6 +6,12 @@ provider "aws" {
 data "aws_vpc" "existing_vpc" {
   id = var.target_vpc_id
 }
+# ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGtvbjA1GCO9/X+hu0ff38RsExGpX+dvIPCjkJibugu8 your-github-email@example.com
+resource "aws_key_pair" "my_laptop_key" {
+  key_name   = "my-poc-ssh-key"
+  public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGtvbjA1GCO9/X+hu0ff38RsExGpX+dvIPCjkJibugu8 your-github-email@example.com"
+}
+
 
 # 2. Automatically find an existing public subnet inside your VPC
 data "aws_subnets" "public_subnets" {
@@ -87,6 +93,7 @@ resource "aws_security_group" "dcv_desktop_sg" {
 resource "aws_instance" "dcv_desktop" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
+  key_name                    = aws_key_pair.my_laptop_key.key_name # NEW: Injects your key
   subnet_id                   = data.aws_subnets.public_subnets.ids[0] # Picks the first discovered subnet
   vpc_security_group_ids      = [aws_security_group.dcv_desktop_sg.id]
   associate_public_ip_address = true
