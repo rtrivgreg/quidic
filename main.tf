@@ -15,7 +15,7 @@ data "aws_subnets" "public_subnets" {
   }
 }
 
-# 3. Create the AWS Identity Profile so NICE DCV runs completely free on EC2
+# Create the digital ID badge role (FIXED SYNTAX)
 resource "aws_iam_role" "dcv_license_role" {
   name = "dcv-license-check-role"
 
@@ -24,7 +24,9 @@ resource "aws_iam_role" "dcv_license_role" {
     Statement = [{
       Action    = "sts:AssumeRole"
       Effect    = "Allow"
-      Principal = { Service = "://amazonaws.com" }
+      Principal = { 
+        Service = "ec2.amazonaws.com" 
+      }
     }]
   })
 }
