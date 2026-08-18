@@ -16,10 +16,14 @@ variable "ami_id" {
   description = "The standard Ubuntu 22.04 LTS operating system image."
 }
 
+#variable "instance_type" {
+#  type        = string
+#  default     = "g5.xlarge" 
+#  description = "The GPU-powered computer engine size needed to run Blender."
+#}
 variable "instance_type" {
   type        = string
-  default     = "g5.xlarge" 
-  description = "The GPU-powered computer engine size needed to run Blender."
+  default     = "t3.xlarge" # Temporary non-GPU size to bypass the limit check
 }
 
 variable "root_volume_size" {
