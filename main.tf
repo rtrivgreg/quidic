@@ -61,6 +61,14 @@ resource "aws_security_group" "dcv_desktop_sg" {
     cidr_blocks = [var.my_ip_cidr]
   }
 
+ # NEW: Allow Microsoft Remote Desktop Protocol traffic
+  ingress {
+    from_port   = 3389
+    to_port     = 3389
+    protocol    = "tcp"
+    cidr_blocks = [var.my_ip_cidr]
+  }
+
   # NICE DCV Stream Ports (Requires both TCP and UDP for responsive streaming)
   ingress {
     from_port   = 8443
