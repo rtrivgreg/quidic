@@ -1,0 +1,5 @@
+export region           = "us-east-1"
+export backup_role_arn  = "arn:aws:iam::123456789012:role/AWSBackupDefaultServiceRole"
+export fsx_admin_password = "ChangeMe!234"
+export project_name     = "storage-demo"
+export tag_environment  = "dev"
