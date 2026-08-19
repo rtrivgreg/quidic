@@ -1,48 +1,43 @@
 #!/bin/bash
-exec > >(tee /var/log/user-data.log|logger -t user-data -s2>/dev/console) 2>&1
-
-echo "=== System Core Updates ==="
+# Prevent Ubuntu from popping up interactive prompt boxes mid-install
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y
-apt-get upgrade -y
 
-echo "=== Installing XFCE Visual Desktop Environment ==="
+echo "=== 1. Core System & Repository Updates ==="
+apt-get update -y
+apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
+
+echo "=== 2. Install Lightweight XFCE Desktop ==="
 apt-get install -y xfce4 xfce4-goodies xinit xserver-xorg
 
-# Create our desktop user account
-useradd -m -s /bin/bash dcvuser
-echo "dcvuser:BlenderReady2026!" | chpasswd
+echo "=== 3. Install Microsoft Remote Desktop Engine ==="
+apt-get install -y xrdp
+echo "xfce4-session" > /home/ubuntu/.xsession
+chown ubuntu:ubuntu /home/ubuntu/.xsession
+systemctl restart xrdp
 
-echo "=== Downloading & Installing NICE DCV Server ==="
-wget https://cloudfront.net
-gpg --import NICE-GPG-KEY
-apt-key add NICE-GPG-KEY
+echo "=== 4. Establish Default Password for Ubuntu Profile ==="
+# Automatically sets your password to 'BlenderReady2026!' with zero typing required
+echo "ubuntu:BlenderReady2026!" | chpasswd
 
-wget https://cloudfront.net
-tar -xvzf nice-dcv-2024.0-17239-ubuntu2204-x86_64.tgz
-cd nice-dcv-2024.0-17239-ubuntu2204-x86_64
-
-apt-get install -y ./nice-dcv-server_*.ubuntu2204_amd64.deb
-apt-get install -y ./nice-dcv-viewer_*.ubuntu2204_amd64.deb
-apt-get install -y ./nice-xdcv_*.ubuntu2204_amd64.deb
-usermod -aG video dcv
-
-echo "=== Installing Blender (CPU-Fallback Mode) ==="
+echo "=== 5. Install Blender ==="
 apt-get install -y blender
 
-echo "=== Configuring CPU-Optimized DCV Session ==="
-systemctl enable dcvserver
-systemctl start dcvserver
+echo "=== 6. Silence the Color Management Popup Permanently ==="
+mkdir -p /etc/polkit-1/localauthority/50-local.d/
+cat << 'EOF' > /etc/polkit-1/localauthority/50-local.d/45-allow-colord.pkla
+[Allow Colord Create Device]
+Identity=unix-user:*
+Action=org.freedesktop.color-manager.create-device
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
 
-# FIXED: Dropped '--gl on' since this machine uses standard CPU processing
-dcv create-session --owner dcvuser --type virtual demo
+[Allow Colord Create Profile]
+Identity=unix-user:*
+Action=org.freedesktop.color-manager.create-profile
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
+EOF
 
-echo "=== All Done! Ready for Testing ==="
-
-
-
-
-
-
-
-
+echo "=== Infrastructure Build Complete ==="
