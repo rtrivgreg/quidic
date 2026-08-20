@@ -37,3 +37,9 @@ variable "my_ip_cidr" {
   default     = "0.0.0.0/0" 
   description = "Security firewall rule. 0.0.0.0/0 means open to the world for testing."
 }
+variable "idle_timeout_ms" {
+  type        = number
+  description = "The idle timeout threshold in milliseconds before the EC2 auto-shuts down."
+  default     = 420000 # Default fallback: 7 minutes
+}
+
