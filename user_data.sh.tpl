@@ -32,20 +32,37 @@ echo "=== 4. Configure Browser User Account ==="
 useradd -m -s /bin/bash dcvuser
 echo "dcvuser:BlenderReady2026!" | chpasswd
 
-echo "=== 5. Pre-Configure and Start DCV Service ==="
+echo "=== 5. Configure dcv.conf Bypass Properties ==="
+# Force NICE DCV to allow browser authentication and loopback display rules
+mkdir -p /etc/dcv/
+cat << 'EOF' > /etc/dcv/dcv.conf
+[security]
+authentication="none"
+
+[session-management]
+create-session = true
+
+[session-management/automatic-console-session]
+owner = "dcvuser"
+
+[connectivity]
+web-port = 8443
+EOF
+
+echo "=== 6. Start Core Services ==="
 systemctl enable lightdm
 systemctl start lightdm
 systemctl enable dcvserver
 systemctl start dcvserver
 
-# Let the background graphics service finish starting up
+# Let the display engines initialize cleanly
 sleep 5
 sudo dcv create-session --owner dcvuser --type virtual demo
 
-echo "=== 6. Install Blender ==="
+echo "=== 7. Install Blender ==="
 apt-get install -y blender
 
-echo "=== 7. Create the Idle Shutdown Python Script ==="
+echo "=== 8. Create the Idle Shutdown Python Script ==="
 cat << 'EOF' > /usr/local/bin/autoshutdown.py
 import sys
 import time
@@ -58,7 +75,7 @@ if len(sys.argv) < 2:
     sys.exit(1)
 
 try:
-    idle_time_ms = float(sys.argv[1])
+    idle_time_ms = float(sys.argv[0])
     IDLE_TIME_SECS = idle_time_ms / 1000.0
 except ValueError:
     sys.exit(1)
@@ -85,7 +102,7 @@ while True:
     time.sleep(CHECK_INTERVAL)
 EOF
 
-echo "=== 8. Create the Systemd Daemon with Terraform Variable ==="
+echo "=== 9. Create the Systemd Daemon with Terraform Variable ==="
 cat << EOF > /etc/systemd/system/autoshutdown.service
 [Unit]
 Description=Auto Shutdown EC2 on Idle
@@ -101,7 +118,7 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
-echo "=== 9. Start Auto-Shutdown Service ==="
+echo "=== 10. Start Auto-Shutdown Service ==="
 systemctl daemon-reload
 systemctl enable autoshutdown.service
 systemctl start autoshutdown.service
