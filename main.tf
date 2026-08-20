@@ -101,24 +101,26 @@ resource "aws_security_group" "dcv_desktop_sg" {
 resource "aws_instance" "dcv_desktop" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
-  key_name                    = aws_key_pair.my_laptop_key.key_name # NEW: Injects your key
-  subnet_id                   = data.aws_subnets.public_subnets.ids[0] # Picks the first discovered subnet
+  subnet_id                   = data.aws_subnets.public_subnets.ids
   vpc_security_group_ids      = [aws_security_group.dcv_desktop_sg.id]
   associate_public_ip_address = true
   iam_instance_profile        = aws_iam_instance_profile.dcv_profile.name
 
   root_block_device {
-    volume_size           = var.root_volume_size
-    volume_type           = "gp3"
-    delete_on_termination = true
+    volume_size = var.root_volume_size
+    volume_type = "gp3"
   }
 
-  user_data = file("${path.module}/user_data.sh")
+  # FIXED: Points to the merged template and passes the 7-minute window parameter
+  user_data = templatefile("${path.module}/user_data.sh.tpl", {
+    idle_timeout_ms = 420000 
+  })
 
   tags = {
     Name = "Blender-GPU-NICE-DCV-Desktop"
   }
 }
+
 
 # Output the final connection endpoint
 output "desktop_connection_url" {
