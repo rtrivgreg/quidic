@@ -1,129 +1,127 @@
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
 provider "aws" {
-  region = var.aws_region
+  region = var.region
 }
 
-# 1. Lookup your existing target VPC
-data "aws_vpc" "existing_vpc" {
-  id = var.target_vpc_id
-}
-# ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGtvbjA1GCO9/X+hu0ff38RsExGpX+dvIPCjkJibugu8 your-github-email@example.com
-resource "aws_key_pair" "my_laptop_key" {
-  key_name   = "my-poc-ssh-key"
-  public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGtvbjA1GCO9/X+hu0ff38RsExGpX+dvIPCjkJibugu8 your-github-email@example.com"
+variable "region" {
+  type    = string
+  default = "us-east-1"
 }
 
+variable "instance_id" {
+  type    = string
+  default = "i-0b70f76ef1405cbb6"
+}
 
-# 2. Automatically find an existing public subnet inside your VPC
-data "aws_subnets" "public_subnets" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.existing_vpc.id]
+variable "security_group_id" {
+  type    = string
+  default = "sg-07f817e24d5050085"
+}
+
+variable "admin_cidr" {
+  description = "CIDR allowed to reach DCV on 8443. Do not use 0.0.0.0/0."
+  type        = string
+}
+
+variable "enable_ssm" {
+  description = "Attach AmazonSSMManagedInstanceCore so you can run commands without SSH."
+  type        = bool
+  default     = true
+}
+
+data "aws_partition" "current" {}
+
+# ---------------------------------------------------------------------------
+# DCV licensing: on EC2 the server needs no license server, but it must be
+# able to read the license object from the regional DCV license bucket.
+# https://docs.aws.amazon.com/dcv/latest/adminguide/setting-up-license.html
+# ---------------------------------------------------------------------------
+
+data "aws_iam_policy_document" "assume" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
   }
 }
 
-# Create the digital ID badge role (FIXED SYNTAX)
-resource "aws_iam_role" "dcv_license_role" {
-  name = "dcv-license-check-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { 
-        Service = "ec2.amazonaws.com" 
-      }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "dcv_license_attach" {
-  role       = aws_iam_role.dcv_license_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
-}
-
-resource "aws_iam_instance_profile" "dcv_profile" {
-  name = "dcv-license-profile"
-  role = aws_iam_role.dcv_license_role.name
-}
-
-# 4. Create the Firewall / Security Guard Rules
-resource "aws_security_group" "dcv_desktop_sg" {
-  name        = "dcv-cloud-desktop-sg"
-  description = "Allows administration and HTML5 NICE DCV streaming"
-  vpc_id      = data.aws_vpc.existing_vpc.id
-
-  # SSH Port
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.my_ip_cidr]
-  }
-
- # NEW: Allow Microsoft Remote Desktop Protocol traffic
-  ingress {
-    from_port   = 3389
-    to_port     = 3389
-    protocol    = "tcp"
-    cidr_blocks = [var.my_ip_cidr]
-  }
-
-  # NICE DCV Stream Ports (Requires both TCP and UDP for responsive streaming)
-  ingress {
-    from_port   = 8443
-    to_port     = 8443
-    protocol    = "tcp"
-    cidr_blocks = [var.my_ip_cidr]
-  }
-
-  ingress {
-    from_port   = 8443
-    to_port     = 8443
-    protocol    = "udp"
-    cidr_blocks = [var.my_ip_cidr]
-  }
-
-  # Let the machine reach out to the internet to download packages
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "dcv-desktop-security-group"
+data "aws_iam_policy_document" "dcv_license" {
+  statement {
+    sid       = "DCVLicenseRead"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["arn:${data.aws_partition.current.partition}:s3:::dcv-license.${var.region}/*"]
   }
 }
 
-# 5. Assemble the complete GPU EC2 Instance
-resource "aws_instance" "dcv_desktop" {
-  ami                         = var.ami_id
-  instance_type               = var.instance_type
-  subnet_id                   = data.aws_subnets.public_subnets.ids[0]
-  vpc_security_group_ids      = [aws_security_group.dcv_desktop_sg.id]
-  associate_public_ip_address = true
-  iam_instance_profile        = aws_iam_instance_profile.dcv_profile.name
-
-  root_block_device {
-    volume_size = var.root_volume_size
-    volume_type = "gp3"
-  }
-
-  # FIXED: Points to the merged template and passes the 7-minute window parameter
-  user_data = templatefile("${path.module}/user_data.sh.tpl", {
-    idle_timeout_ms = 420000 
-  })
-
-  tags = {
-    Name = "Blender-GPU-NICE-DCV-Desktop"
-  }
+resource "aws_iam_role" "dcv" {
+  name               = "DCVLicenseAccess"
+  assume_role_policy = data.aws_iam_policy_document.assume.json
 }
 
+resource "aws_iam_role_policy" "dcv_license" {
+  name   = "DCVLicenseRead"
+  role   = aws_iam_role.dcv.id
+  policy = data.aws_iam_policy_document.dcv_license.json
+}
 
-# Output the final connection endpoint
-output "desktop_connection_url" {
-  value       = "https://${aws_instance.dcv_desktop.public_ip}:8443"
-  description = "Open this web address in Google Chrome once boot completes!"
+resource "aws_iam_role_policy_attachment" "ssm" {
+  count      = var.enable_ssm ? 1 : 0
+  role       = aws_iam_role.dcv.name
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "dcv" {
+  name = "DCVLicProfile"
+  role = aws_iam_role.dcv.name
+}
+
+# NOTE: the AWS provider has no resource for binding an instance profile to an
+# instance it does not manage. Since this EC2 instance was created outside
+# Terraform, use the one-shot CLI call emitted in the attach_command output
+# (or `terraform import` the instance first if you want it fully managed).
+
+# ---------------------------------------------------------------------------
+# Network: DCV listens on 8443. UDP carries the QUIC datagram channel, which
+# is what makes the session feel local; without it you silently fall back to
+# TCP-only and the session feels laggy.
+# ---------------------------------------------------------------------------
+
+resource "aws_vpc_security_group_ingress_rule" "dcv_tcp" {
+  security_group_id = var.security_group_id
+  description       = "Amazon DCV (TCP)"
+  cidr_ipv4         = var.admin_cidr
+  from_port         = 8443
+  to_port           = 8443
+  ip_protocol       = "tcp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "dcv_quic" {
+  security_group_id = var.security_group_id
+  description       = "Amazon DCV QUIC (UDP)"
+  cidr_ipv4         = var.admin_cidr
+  from_port         = 8443
+  to_port           = 8443
+  ip_protocol       = "udp"
+}
+
+output "instance_profile_name" {
+  value = aws_iam_instance_profile.dcv.name
+}
+
+output "attach_command" {
+  description = "Run this once to bind the profile to the existing instance."
+  value       = "aws ec2 associate-iam-instance-profile --instance-id ${var.instance_id} --iam-instance-profile Name=${aws_iam_instance_profile.dcv.name} --region ${var.region}"
 }
