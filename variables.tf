@@ -8,10 +8,16 @@ variable "target_vpc_id" {
   default = "vpc-0c4f804e905f41635"
 }
 
+#variable "ami_id" {
+#  type    = string
+#  default = "ami-0c7217cdde317cfec" # Standard Ubuntu 22.04 LTS
+#}
 variable "ami_id" {
   type    = string
-  default = "ami-0c7217cdde317cfec" # Standard Ubuntu 22.04 LTS
+  # Official AWS NVIDIA Gaming Ubuntu 22.04 AMI for us-east-1
+  default = "ami-0640d21051563f64c" 
 }
+
 
 # UPGRADED: Swapping to the newly unlocked hardware GPU tier
 variable "instance_type" {
