@@ -1,10 +1,13 @@
 #!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
 
-echo "=== 1. Install NVIDIA Graphics Drivers ==="
+echo "=== 1. Install Pre-Compiled AWS NVIDIA Drivers ==="
 apt-get update -y
-apt-get install -y ubuntu-drivers-common build-essential
-ubuntu-drivers install --gpgpu
+# Installs matching development tools and kernel structures to prevent compilation crashes
+apt-get install -y build-essential linux-headers-$(uname -r)
+
+# Install pre-compiled, non-interactive NVIDIA drivers optimized for AWS servers
+apt-get install -y nvidia-driver-535-server
 nvidia-xconfig --preserve-busid --allow-empty-initial-configuration
 
 echo "=== 2. Install Desktop Environment ==="
@@ -53,7 +56,7 @@ systemctl enable lightdm && systemctl start lightdm
 systemctl enable dcvserver && systemctl start dcvserver
 sleep 5
 
-# CRITICAL FOR BLENDER: Spins up a Virtual Session with Full GPU Acceleration ON
+# Spins up a Virtual Session with Full GPU Acceleration ON
 sudo dcv create-session --owner dcvuser --type virtual --gl on demo
 
 echo "=== 8. Install Blender ==="
@@ -69,7 +72,8 @@ import subprocess
 CHECK_INTERVAL = 60  # 1 minute
 if len(sys.argv) < 2: sys.exit(1)
 try:
-    IDLE_TIME_SECS = float(sys.argv[1]) / 1000.0
+    idle_time_ms = float(sys.argv[1])
+    IDLE_TIME_SECS = idle_time_ms / 1000.0
 except ValueError: sys.exit(1)
 
 idle_start = None
