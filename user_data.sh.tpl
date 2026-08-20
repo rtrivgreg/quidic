@@ -52,12 +52,18 @@ web-port = 8443
 EOF
 
 echo "=== 7. Fire Up Hardware Daemons ==="
+# NEW: Force-disable internal OS firewall blocks to clear local timeout locks
+ufw disable
+iptables -A INPUT -p tcp --dport 8443 -j ACCEPT
+iptables -A INPUT -p udp --dport 8443 -j ACCEPT
+
 systemctl enable lightdm && systemctl start lightdm
 systemctl enable dcvserver && systemctl start dcvserver
 sleep 5
 
 # Spins up a Virtual Session with Full GPU Acceleration ON
 sudo dcv create-session --owner dcvuser --type virtual --gl on demo
+
 
 echo "=== 8. Install Blender ==="
 apt-get install -y blender
