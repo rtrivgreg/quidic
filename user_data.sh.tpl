@@ -1,16 +1,15 @@
 #!/bin/bash
-# Prevent interactive prompt blocks
 export DEBIAN_FRONTEND=noninteractive
 
-echo "=== 1. Core System & Repository Updates ==="
+echo "=== 1. Core System & Desktop Updates ==="
 apt-get update -y
 apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
 
-echo "=== 2. Install Lightweight XFCE Desktop ==="
-apt-get install -y xfce4 xfce4-goodies xinit xserver-xorg python3-psutil
+# Force install a display manager alongside XFCE to run the background monitor
+apt-get install -y xfce4 xfce4-goodies xinit xserver-xorg lightdm python3-psutil
+echo "/usr/sbin/lightdm" > /etc/X11/default-display-manager
 
-echo "=== 3. Download and Install Browser Streaming Engine ==="
-# Bypasses paste buffer bugs by building the download path locally
+echo "=== 2. Download and Extract Engine ==="
 echo -n "https://d1uj6qtbmh3dt5" > link.txt
 echo -n ".cloudfront.net/latest/" >> link.txt
 echo "nice-dcv-ubuntu2204-x86_64.tgz" >> link.txt
@@ -19,7 +18,7 @@ wget -i link.txt -O dcv.tgz
 tar -xvzf dcv.tgz
 cd nice-dcv-*-ubuntu2204-x86_64
 
-# FIXED: Added the explicit web-viewer package to the auto-installer array
+echo "=== 3. Install Server and Web Components ==="
 sudo apt-get install -y \
   ./nice-dcv-server_*.ubuntu2204_amd64.deb \
   ./nice-dcv-viewer_*.ubuntu2204_amd64.deb \
@@ -33,13 +32,18 @@ echo "=== 4. Configure Browser User Account ==="
 useradd -m -s /bin/bash dcvuser
 echo "dcvuser:BlenderReady2026!" | chpasswd
 
-echo "=== 5. Install Blender ==="
-apt-get install -y blender
-
-echo "=== 6. Launch Browser Streaming Session ==="
+echo "=== 5. Pre-Configure and Start DCV Service ==="
+systemctl enable lightdm
+systemctl start lightdm
 systemctl enable dcvserver
 systemctl start dcvserver
+
+# Let the background graphics service finish starting up
+sleep 5
 sudo dcv create-session --owner dcvuser --type virtual demo
+
+echo "=== 6. Install Blender ==="
+apt-get install -y blender
 
 echo "=== 7. Create the Idle Shutdown Python Script ==="
 cat << 'EOF' > /usr/local/bin/autoshutdown.py
