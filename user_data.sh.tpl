@@ -52,16 +52,20 @@ web-port = 8443
 EOF
 
 echo "=== 7. Fire Up Hardware Daemons ==="
-# NEW: Force-disable internal OS firewall blocks to clear local timeout locks
+# Force-kill local Linux firewall blocks
 ufw disable
+
+# Inject explicit pass-through network rule bindings into the Linux kernel
+iptables -F
 iptables -A INPUT -p tcp --dport 8443 -j ACCEPT
 iptables -A INPUT -p udp --dport 8443 -j ACCEPT
 
 systemctl enable lightdm && systemctl start lightdm
+systemctl restart systemd-networkd
 systemctl enable dcvserver && systemctl start dcvserver
-sleep 5
+sleep 7
 
-# Spins up a Virtual Session with Full GPU Acceleration ON
+# Launch Accelerated Virtual Media Core Frame
 sudo dcv create-session --owner dcvuser --type virtual --gl on demo
 
 
