@@ -9,7 +9,8 @@ apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-conf
 echo "=== 2. Install Lightweight XFCE Desktop ==="
 apt-get install -y xfce4 xfce4-goodies xinit xserver-xorg python3-psutil
 
-echo "=== 3. Assemble and Download Browser Streaming Engine ==="
+echo "=== 3. Download and Install Browser Streaming Engine ==="
+# Bypasses paste buffer bugs by building the download path locally
 echo -n "https://d1uj6qtbmh3dt5" > link.txt
 echo -n ".cloudfront.net/latest/" >> link.txt
 echo "nice-dcv-ubuntu2204-x86_64.tgz" >> link.txt
@@ -18,8 +19,13 @@ wget -i link.txt -O dcv.tgz
 tar -xvzf dcv.tgz
 cd nice-dcv-*-ubuntu2204-x86_64
 
-# Install the browser server modules
-sudo apt-get install -y ./nice-dcv-server_*.ubuntu2204_amd64.deb ./nice-dcv-viewer_*.ubuntu2204_amd64.deb ./nice-xdcv_*.ubuntu2204_amd64.deb
+# FIXED: Added the explicit web-viewer package to the auto-installer array
+sudo apt-get install -y \
+  ./nice-dcv-server_*.ubuntu2204_amd64.deb \
+  ./nice-dcv-viewer_*.ubuntu2204_amd64.deb \
+  ./nice-xdcv_*.ubuntu2204_amd64.deb \
+  ./nice-dcv-web-viewer_*.ubuntu2204_amd64.deb
+
 sudo usermod -aG video dcv
 cd ..
 
@@ -57,13 +63,10 @@ time.sleep(3)
 idle_start = None
 
 def is_system_active():
-    # Look for active streaming network connections on the web browser port (8443)
+    # Monitors active HTML5 browser sockets on port 8443
     for conn in psutil.net_connections(kind='tcp'):
         if conn.laddr.port == 8443 and conn.status == 'ESTABLISHED':
             return True
-    # Fallback to standard SSH connections
-    if psutil.users():
-        return True
     return False
 
 while True:
@@ -79,7 +82,6 @@ while True:
 EOF
 
 echo "=== 8. Create the Systemd Daemon with Terraform Variable ==="
-# Notice we use plain EOF here so Terraform can inject the timeout value cleanly
 cat << EOF > /etc/systemd/system/autoshutdown.service
 [Unit]
 Description=Auto Shutdown EC2 on Idle
@@ -100,4 +102,4 @@ systemctl daemon-reload
 systemctl enable autoshutdown.service
 systemctl start autoshutdown.service
 
-echo "=== All Core Configurations Successfully Operational ==="
+echo "=== Infrastructure Build Complete ==="
