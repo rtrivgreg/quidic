@@ -101,7 +101,7 @@ resource "aws_security_group" "dcv_desktop_sg" {
 resource "aws_instance" "dcv_desktop" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
-  subnet_id                   = data.aws_subnets.public_subnets.ids
+  subnet_id                   = data.aws_subnets.public_subnets.ids[0]
   vpc_security_group_ids      = [aws_security_group.dcv_desktop_sg.id]
   associate_public_ip_address = true
   iam_instance_profile        = aws_iam_instance_profile.dcv_profile.name
