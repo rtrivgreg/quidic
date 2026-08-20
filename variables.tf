@@ -1,45 +1,30 @@
 variable "aws_region" {
-  type        = string
-  default     = "us-east-1"
-  description = "The AWS region you want to build your desktop in."
+  type    = string
+  default = "us-east-1"
 }
 
 variable "target_vpc_id" {
-  type        = string
-  default     = "vpc-0c4f804e905f41635"
-  description = "Your existing AWS virtual network ID."
+  type    = string
+  default = "vpc-0c4f804e905f41635"
 }
 
 variable "ami_id" {
-  type        = string
-  default     = "ami-0c7217cdde317cfec" 
-  description = "The standard Ubuntu 22.04 LTS operating system image."
+  type    = string
+  default = "ami-0c7217cdde317cfec" # Standard Ubuntu 22.04 LTS
 }
 
-#variable "instance_type" {
-#  type        = string
-#  default     = "g5.xlarge" 
-#  description = "The GPU-powered computer engine size needed to run Blender."
-#}
+# UPGRADED: Swapping to the newly unlocked hardware GPU tier
 variable "instance_type" {
-  type        = string
-  default     = "t3.xlarge" # Temporary non-GPU size to bypass the limit check
+  type    = string
+  default = "g5.xlarge" 
 }
 
 variable "root_volume_size" {
-  type        = number
-  default     = 100 
-  description = "The size of your virtual hard drive in gigabytes."
+  type    = number
+  default = 100 
 }
 
 variable "my_ip_cidr" {
-  type        = string
-  default     = "0.0.0.0/0" 
-  description = "Security firewall rule. 0.0.0.0/0 means open to the world for testing."
+  type    = string
+  default = "0.0.0.0/0" 
 }
-variable "idle_timeout_ms" {
-  type        = number
-  description = "The idle timeout threshold in milliseconds before the EC2 auto-shuts down."
-  default     = 420000 # Default fallback: 7 minutes
-}
-
